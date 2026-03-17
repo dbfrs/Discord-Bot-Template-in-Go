@@ -1,16 +1,13 @@
 package main
-
 import (
 	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
-
 	"github.com/bwmarrin/discordgo"
 )
 
-// command: help - Display all available commands
 func cmdHelp(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	embed := &discordgo.MessageEmbed{
 		Title:       "Bot Commands",
@@ -50,7 +47,6 @@ func cmdHelp(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	}
 }
 
-// command: ping - Check bot latency
 func cmdPing(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	start := time.Now()
 	msg, err := s.ChannelMessageSend(m.ChannelID, "Pinging...")
@@ -85,7 +81,6 @@ func cmdPing(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	}
 }
 
-// command: info - Bot information
 func cmdInfo(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	guilds := len(s.State.Guilds)
 
@@ -127,7 +122,6 @@ func cmdInfo(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	}
 }
 
-// command: serverinfo - Display server information
 func cmdServerInfo(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	guild, err := s.Guild(m.GuildID)
 	if err != nil {
@@ -189,7 +183,6 @@ func cmdServerInfo(s *discordgo.Session, m *discordgo.MessageCreate, args []stri
 	}
 }
 
-// command: userinfo - Display user information
 func cmdUserInfo(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	var userID string
 	if len(m.Mentions) > 0 {
@@ -256,15 +249,12 @@ func cmdUserInfo(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 	}
 }
 
-// command: kick - Kick a user from the server
 func cmdKick(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// check permissions
 	if !hasPermission(s, m.GuildID, m.Author.ID, discordgo.PermissionKickMembers) {
 		sendError(s, m.ChannelID, "You don't have permission to kick members.")
 		return
 	}
 
-	// validate arguments
 	if len(m.Mentions) == 0 {
 		sendError(s, m.ChannelID, "Please mention a user to kick.")
 		return
@@ -276,13 +266,11 @@ func cmdKick(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 		reason = strings.Join(args, " ")
 	}
 
-	// prevent kicking the bot owner or self
 	if target.ID == m.Author.ID {
 		sendError(s, m.ChannelID, "You cannot kick yourself!")
 		return
 	}
 
-	// execute kick
 	err := s.GuildMemberDeleteWithReason(m.GuildID, target.ID, reason)
 	if err != nil {
 		sendError(s, m.ChannelID, fmt.Sprintf("Failed to kick user: %v", err))
@@ -292,15 +280,12 @@ func cmdKick(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	sendSuccess(s, m.ChannelID, fmt.Sprintf("Kicked %s. Reason: %s", target.Mention(), reason))
 }
 
-// command: ban - Ban a user from the server
 func cmdBan(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// check permissions
 	if !hasPermission(s, m.GuildID, m.Author.ID, discordgo.PermissionBanMembers) {
 		sendError(s, m.ChannelID, "You don't have permission to ban members.")
 		return
 	}
 
-	// validate arguments
 	if len(m.Mentions) == 0 {
 		sendError(s, m.ChannelID, "Please mention a user to ban.")
 		return
@@ -312,13 +297,11 @@ func cmdBan(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 		reason = strings.Join(args, " ")
 	}
 
-	// prevent banning self
 	if target.ID == m.Author.ID {
 		sendError(s, m.ChannelID, "You cannot ban yourself!")
 		return
 	}
 
-	// execute ban
 	err := s.GuildBanCreateWithReason(m.GuildID, target.ID, reason, 0)
 	if err != nil {
 		sendError(s, m.ChannelID, fmt.Sprintf("Failed to ban user: %v", err))
@@ -328,9 +311,7 @@ func cmdBan(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	sendSuccess(s, m.ChannelID, fmt.Sprintf("Banned %s. Reason: %s", target.Mention(), reason))
 }
 
-// command: clear - Delete messages in bulk
 func cmdClear(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	// check permissions
 	if !hasPermission(s, m.GuildID, m.Author.ID, discordgo.PermissionManageMessages) {
 		sendError(s, m.ChannelID, "You don't have permission to manage messages.")
 		return
@@ -347,7 +328,6 @@ func cmdClear(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 		return
 	}
 
-	// fetch messages
 	messages, err := s.ChannelMessages(m.ChannelID, amount, "", "", "")
 	if err != nil {
 		sendError(s, m.ChannelID, "Failed to fetch messages.")
@@ -359,24 +339,20 @@ func cmdClear(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 		messageIDs[i] = msg.ID
 	}
 
-	// delete messages
 	err = s.ChannelMessagesBulkDelete(m.ChannelID, messageIDs)
 	if err != nil {
 		sendError(s, m.ChannelID, "Failed to delete messages.")
 		return
 	}
 
-	// delete command message
 	s.ChannelMessageDelete(m.ChannelID, m.ID)
 
-	// send confirmation (will auto-delete)
 	msg, _ := s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Deleted %d messages.", len(messageIDs)))
 	time.AfterFunc(3*time.Second, func() {
 		s.ChannelMessageDelete(m.ChannelID, msg.ID)
 	})
 }
 
-// command: poll - Create a yes/no poll
 func cmdPoll(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) == 0 {
 		sendError(s, m.ChannelID, "Please provide a question for the poll.")
@@ -401,12 +377,10 @@ func cmdPoll(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 		return
 	}
 
-	// reactions
 	s.MessageReactionAdd(m.ChannelID, msg.ID, "👍")
 	s.MessageReactionAdd(m.ChannelID, msg.ID, "👎")
 }
 
-// command: 8ball - Magic 8-ball
 func cmd8Ball(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) == 0 {
 		sendError(s, m.ChannelID, "Please ask a question!")
@@ -439,7 +413,6 @@ func cmd8Ball(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	}
 }
 
-// command: roll - Roll a dice
 func cmdRoll(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	max := 6
 	if len(args) > 0 {
@@ -465,7 +438,6 @@ func cmdRoll(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	}
 }
 
-// command: avatar - Get user's avatar
 func cmdAvatar(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	var user *discordgo.User
 	if len(m.Mentions) > 0 {
