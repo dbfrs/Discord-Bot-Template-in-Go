@@ -1,5 +1,4 @@
 package main
-
 import (
 	"fmt"
 	"log"
@@ -8,7 +7,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -29,19 +27,16 @@ func main() {
 		log.Fatalf("Error creating Discord session: %v", err)
 	}
 
-	// set intents for the bot
 	session.Identify.Intents = discordgo.IntentsGuildMessages |
 		discordgo.IntentsGuildMembers |
 		discordgo.IntentsGuilds |
 		discordgo.IntentsMessageContent
 
-	// register event handlers
 	session.AddHandler(onReady)
 	session.AddHandler(onMessageCreate)
 	session.AddHandler(onGuildCreate)
 	session.AddHandler(onGuildMemberAdd)
 
-	// open connection
 	err = session.Open()
 	if err != nil {
 		log.Fatalf("Error opening connection: %v", err)
@@ -49,8 +44,7 @@ func main() {
 	defer session.Close()
 
 	fmt.Println("Bot is now running. Press CTRL+C to exit.")
-	
-	// wait for interrupt signal
+
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
@@ -58,30 +52,24 @@ func main() {
 	fmt.Println("\nShutting down gracefully...")
 }
 
-// event handler: Bot ready
 func onReady(s *discordgo.Session, event *discordgo.Ready) {
 	log.Printf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 	
-	// set bot status
 	err := s.UpdateGameStatus(0, "!help for commands")
 	if err != nil {
 		log.Printf("Error setting status: %v", err)
 	}
 }
 
-// event handler: Message received
 func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// ignore messages from bots
 	if m.Author.Bot {
 		return
 	}
 
-	// check if message starts with prefix
 	if !strings.HasPrefix(m.Content, prefix) {
 		return
 	}
 
-	// parse command and arguments
 	args := strings.Fields(m.Content[len(prefix):])
 	if len(args) == 0 {
 		return
@@ -90,11 +78,9 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	command := strings.ToLower(args[0])
 	cmdArgs := args[1:]
 
-	// route to command handler
 	handleCommand(s, m, command, cmdArgs)
 }
 
-// event handler: Guild joined
 func onGuildCreate(s *discordgo.Session, event *discordgo.GuildCreate) {
 	if event.Guild.Unavailable {
 		return
@@ -102,7 +88,6 @@ func onGuildCreate(s *discordgo.Session, event *discordgo.GuildCreate) {
 
 	log.Printf("Joined guild: %s (ID: %s)", event.Guild.Name, event.Guild.ID)
 	
-	// send welcome message to system channel if available
 	if event.Guild.SystemChannelID != "" {
 		welcomeMsg := fmt.Sprintf("Thanks for adding me! Use `%shelp` to see available commands.", prefix)
 		_, err := s.ChannelMessageSend(event.Guild.SystemChannelID, welcomeMsg)
@@ -112,7 +97,6 @@ func onGuildCreate(s *discordgo.Session, event *discordgo.GuildCreate) {
 	}
 }
 
-// event handler: New member joined
 func onGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	guild, err := s.Guild(m.GuildID)
 	if err != nil {
@@ -120,7 +104,6 @@ func onGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 		return
 	}
 
-	// send welcome message if system channel exists
 	if guild.SystemChannelID != "" {
 		welcomeMsg := fmt.Sprintf("Welcome to %s, %s!", guild.Name, m.User.Mention())
 		_, err := s.ChannelMessageSend(guild.SystemChannelID, welcomeMsg)
@@ -130,7 +113,6 @@ func onGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	}
 }
 
-// command router
 func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate, cmd string, args []string) {
 	switch cmd {
 	case "help":
@@ -162,7 +144,6 @@ func handleCommand(s *discordgo.Session, m *discordgo.MessageCreate, cmd string,
 	}
 }
 
-// helper: Send error message
 func sendError(s *discordgo.Session, channelID, message string) {
 	embed := &discordgo.MessageEmbed{
 		Title:       "Error",
@@ -176,7 +157,6 @@ func sendError(s *discordgo.Session, channelID, message string) {
 	}
 }
 
-// helper: Send success message
 func sendSuccess(s *discordgo.Session, channelID, message string) {
 	embed := &discordgo.MessageEmbed{
 		Title:       "Success",
@@ -190,20 +170,17 @@ func sendSuccess(s *discordgo.Session, channelID, message string) {
 	}
 }
 
-// helper: Check if user has permission
 func hasPermission(s *discordgo.Session, guildID, userID string, permission int64) bool {
 	member, err := s.GuildMember(guildID, userID)
 	if err != nil {
 		return false
 	}
 
-	// check if user is guild owner
 	guild, err := s.Guild(guildID)
 	if err == nil && guild.OwnerID == userID {
 		return true
 	}
 
-	// check permissions for each role
 	for _, roleID := range member.Roles {
 		role, err := s.State.Role(guildID, roleID)
 		if err != nil {
